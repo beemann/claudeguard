@@ -1,0 +1,225 @@
+# ClaudeGuard
+
+> A report-only, pre-merge **policy gate** that runs as a [Claude Code](https://claude.com/claude-code) skill.
+> It reads a diff, evaluates it against versioned rulesets, and emits a structured **PASS / WARN / FAIL** verdict. It never edits your code.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## What it is
+
+ClaudeGuard is a **gate, not a fixer**. It answers one question on every change —
+*"does this diff violate our policy?"* — and leaves the decision to a human.
+
+It deliberately **reuses the host agent's existing engine** (git, diff reading,
+reasoning) instead of rebuilding an LLM client, a diff analyzer, or a patch
+applier. The only thing ClaudeGuard owns is **policy as data**: a folder of
+plain-Markdown rules, each with a small frontmatter contract and a human-readable
+body describing what a failure looks like and why.
+
+That design has three consequences worth stating up front:
+
+- **Separation of concerns.** A component that both *finds* and *fixes*
+  violations has an incentive to over-flag to look useful. A pure gate doesn't.
+- **No unreviewed merges.** Running on a PR moments before merge, an auto-fixer
+  would mutate the very diff a human just reviewed. ClaudeGuard reports; you act.
+- **Determinism & auditability.** The output is a verdict table plus a parseable
+  JSON block — diffable, reviewable, and mappable to a CI exit code.
+
+## Why
+
+Static linters catch syntax; they don't catch *policy*. "We run everything
+through Docker", "no destructive migration without sign-off", "every new route
+declares its auth posture", "no optimization without a measurement" — these are
+team contracts that normally live in a `CLAUDE.md` nobody re-reads at review
+time. ClaudeGuard turns those contracts into executable rules and enforces them
+at the last cheap moment: **before the merge**.
+
+## How it works
+
+The procedure is defined in [`SKILL.md`](SKILL.md) and runs in five steps:
+
+1. **Resolve the diff.** Default base is `origin/main` (merge-base, so only the
+   branch's own commits are judged); overridable per project or per run.
+2. **Resolve rulesets.** Read every `*.md` under `rulesets/`, honor
+   `claudeguard.config.json` (enable/disable, severity overrides), and keep only
+   rules whose `applies_to` globs match at least one changed file.
+3. **Smoke check (mandatory, anti-falsification).** For each kept rule, state how
+   many changed files it *actually* applies to. A rule that matches zero files is
+   dropped — the gate never invents violations to justify a rule.
+4. **Evaluate.** Judge only added/modified (`+`) lines. Every violation must cite
+   concrete evidence: a file, a best-effort line, and the exact offending line.
+   No quote, no claim.
+5. **Verdict.** `FAIL` if any violation is `high`/`critical`; `WARN` for
+   `medium`/`low`; `PASS` if clean. The threshold is configurable via `block_on`
+   (default `high`).
+
+## Output
+
+ClaudeGuard emits a human-readable table followed by a machine-readable JSON
+block:
+
+```
+ClaudeGuard verdict: FAIL
+Base: origin/main · Files scanned: 7 · Rulesets active: 5
+
+| Severity | Rule        | File            | Line | Why                          |
+|----------|-------------|-----------------|------|------------------------------|
+| high     | docker-only | scripts/dev.ps1 | 12   | `npm run dev` invoked on host |
+| medium   | no-any      | src/api/user.ts | 44   | `: any` on request body       |
+```
+
+```json
+{
+  "verdict": "FAIL",
+  "base": "origin/main",
+  "files_scanned": 7,
+  "rulesets_active": ["docker-only", "no-any", "..."],
+  "violations": [
+    {
+      "rule": "docker-only",
+      "severity": "high",
+      "file": "scripts/dev.ps1",
+      "line": 12,
+      "evidence": "+ npm run dev",
+      "why": "Command invoked on host instead of `docker compose exec app …`.",
+      "suggestion": "docker compose exec app npm run dev"
+    }
+  ],
+  "block_on": "high"
+}
+```
+
+The CI runner maps the verdict to an exit code: `PASS`/`WARN` → `0`, `FAIL` → `1`.
+
+## Rulesets
+
+Rules ship in two tiers:
+
+| Tier | Folder | Intent |
+|------|--------|--------|
+| **Core** | `rulesets/_core/` | Universal, provider-agnostic, uncontroversial — adopt as-is. |
+| **House** | `rulesets/house/` | Your team's opinionated rules — swap when you fork. |
+
+Bundled rules:
+
+| Rule | Tier | Severity | Trips on |
+|------|------|----------|----------|
+| `no-secrets` | core | critical | Credential/key/token literals (provider prefixes, PEM blocks, secret assignments). |
+| `no-conflict-markers` | core | high | Unresolved git conflict markers committed to a tracked file. |
+| `docker-only` | house | high | Project tooling run on the host instead of in-container (shell scripts & task runners). |
+| `no-destructive-db` | house | critical | Unguarded `DROP`/`TRUNCATE`/`DELETE … ` without `WHERE`, etc. |
+| `security-routes` | house | high | A new route/handler with no visible auth, validation, or injection posture. |
+| `no-any` | house | medium | `any`, `as any`, `@ts-ignore` and other TypeScript escape hatches. |
+| `measurement-first` | house | medium | A change claiming to *optimize* something with no benchmark/measurement. |
+
+## Usage
+
+### As a Claude Code skill
+
+Place this repo's contents where Claude Code discovers skills (e.g.
+`.claude/skills/claudeguard/` in your project), then ask:
+
+> *run claudeguard* · *gate this branch* · *check policy compliance*
+
+### Local runner
+
+```powershell
+# PowerShell
+./scripts/check.ps1 -BaseRef origin/main
+```
+
+```bash
+# POSIX
+scripts/check.sh origin/main
+```
+
+Requires `git`, the `claude` CLI on `PATH`, and `ANTHROPIC_API_KEY` in the
+environment. An empty diff is an immediate `PASS`.
+
+### CI (GitHub Actions)
+
+[`.github/workflows/claudeguard.yml`](.github/workflows/claudeguard.yml) gates
+pull requests, posts the verdict as a PR comment and job summary, and blocks the
+merge on a high/critical violation. Add a repository secret
+`ANTHROPIC_API_KEY` to activate it.
+
+> **Security note:** the workflow uses `on: pull_request` (not
+> `pull_request_target`). On public repos, GitHub does **not** pass secrets to
+> workflows triggered by fork PRs, so an untrusted PR cannot exfiltrate the API
+> key — by design.
+
+## Configuration
+
+Copy [`claudeguard.config.example.json`](claudeguard.config.example.json) to
+`claudeguard.config.json` and edit per project:
+
+```json
+{
+  "base": "origin/main",
+  "block_on": "high",
+  "rules": {
+    "no-secrets": { "enabled": true },
+    "docker-only": { "enabled": true, "severity": "critical" }
+  }
+}
+```
+
+- `base` — default ref to diff against.
+- `block_on` — minimum severity that produces a `FAIL` (`low`|`medium`|`high`|`critical`).
+- `rules.<id>.enabled` — toggle a rule off without deleting it.
+- `rules.<id>.severity` — override a rule's shipped severity.
+
+## Authoring a rule
+
+Drop a `*.md` into `rulesets/_core/` (universal) or `rulesets/house/`
+(team-specific). No code change is required — the procedure picks it up
+automatically.
+
+```markdown
+---
+id: no-todo-without-ticket
+severity: low
+applies_to:
+  - "**/*.ts"
+  - "**/*.py"
+enabled: true
+---
+
+# No TODO without a tracking ticket
+
+**FAIL** when the diff adds a `TODO`/`FIXME` with no issue reference.
+
+Trip on added lines matching `TODO`/`FIXME` not followed by a ticket id
+(e.g. `JIRA-123`, `#456`).
+
+**Why:** untracked TODOs are debt that never gets scheduled.
+
+**Suggestion:** link a ticket, or do the work now.
+```
+
+Keep `_core` rules uncontroversial; anything debatable belongs in `house/`.
+Every rule body should state, in plain language, **what a `FAIL` looks like**,
+**why** it matters, and a **suggestion** — and should rely on evidence visible
+in the diff.
+
+## Forking into your project
+
+1. Copy `rulesets/`, `scripts/`, the skill, and the workflow into your repo.
+2. Replace `rulesets/house/` with your team's rules; keep `rulesets/_core/`.
+3. Tune `applies_to` globs and trip patterns to your stack (e.g. Bun vs npm,
+   Drizzle vs Prisma, Hono vs Express).
+4. Set `base` in `claudeguard.config.json` to your integration branch.
+
+## Design principles & non-goals
+
+- **Never edits, stages, or commits.** A gate, not a fixer.
+- **Never invents violations** to make a rule look useful. Inert rule → dropped.
+- **Evidence-based.** Every violation cites the exact added line.
+- **Precise over zealous.** A false `FAIL` erodes trust faster than a missed `LOW`.
+- **Deterministic output** so report diffs stay reviewable.
+
+## License
+
+[MIT](LICENSE) © 2026 Beeman
