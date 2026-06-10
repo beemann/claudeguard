@@ -1,0 +1,80 @@
+name: ClaudeGuard Pre-Main Gate
+
+# Report-only policy gate. Blocks the merge when a high/critical house rule is
+# violated. Never edits code — a human decides what to do with a FAIL.
+
+on:
+  pull_request:
+    branches: [main, master]
+
+# Cancel superseded runs on the same PR.
+concurrency:
+  group: claudeguard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (full history for merge-base diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run ClaudeGuard gate
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          chmod +x scripts/check.sh
+          set +e
+          scripts/check.sh "origin/${{ github.base_ref }}"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Publish report to job summary
+        if: always()
+        run: |
+          {
+            echo "## ClaudeGuard verdict"
+            echo ""
+            if [ -f claudeguard.report.md ]; then
+              cat claudeguard.report.md
+            else
+              echo "_No report produced._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment report on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## ClaudeGuard verdict\n\n_No report produced._';
+            try { body = '## ClaudeGuard verdict\n\n' + fs.readFileSync('claudeguard.report.md', 'utf8'); } catch {}
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000),
+            });
+
+      - name: Enforce verdict
+        if: steps.gate.outputs.exit_code != '0'
+        run: |
+          echo "ClaudeGuard failed the gate (exit ${{ steps.gate.outputs.exit_code }})."
+          exit 1

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build / cache
+dist/
+.next/
+*.tsbuildinfo
+
+# Secrets / local env
+.env
+.env.local
+*.key
+
+# ClaudeGuard local artifacts
+.claudeguard/
+claudeguard.report.json
+claudeguard.report.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

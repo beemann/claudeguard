@@ -1,0 +1,12 @@
+{
+  "$schema": "Optional. Copy to claudeguard.config.json and edit per project.",
+  "base": "origin/main",
+  "block_on": "high",
+  "rules": {
+    "docker-only": { "enabled": true },
+    "measurement-first": { "enabled": true },
+    "no-any": { "enabled": true },
+    "security-routes": { "enabled": true },
+    "no-destructive-db": { "enabled": true }
+  }
+}
