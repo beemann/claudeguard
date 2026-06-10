@@ -16,6 +16,9 @@ dist/
 claudeguard.report.json
 claudeguard.report.md
 
+# Internal design notes — kept local only, never published
+docs/
+
 # OS / editor
 .DS_Store
 Thumbs.db
