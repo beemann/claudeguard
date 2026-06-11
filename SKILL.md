@@ -13,6 +13,13 @@ It deliberately reuses the host agent's existing engine (git, diff reading,
 reasoning) instead of rebuilding an LLM client, diff analyzer, or patch
 applier. The only thing ClaudeGuard owns is **policy as data**.
 
+**Engine vs. policy.** The universal `_core` rules ship with the engine; the
+team's `house` rules and config live in the project. When ClaudeGuard runs as an
+installed Claude Code plugin, `${CLAUDE_PLUGIN_ROOT}` is the engine root (where
+the bundled `rulesets/_core/` lives). When it runs from a repo that vendored the
+files (via the installer or `claudeguard-init`), everything lives under the
+project root. The ruleset-resolution step below handles both transparently.
+
 ## When to run
 
 - Before merging a feature/`dev` branch into `main`/`master`.
@@ -45,9 +52,24 @@ If the diff is empty, emit a `PASS` verdict with `files_scanned: 0` and stop.
 
 ### 2. Resolve rulesets
 
-Read `claudeguard.config.json` if present (fall back to
-`claudeguard.config.example.json` semantics: everything enabled). For each
-ruleset file under `rulesets/`:
+Read `claudeguard.config.json` from the **project root** if present (fall back to
+`claudeguard.config.example.json` semantics: everything enabled).
+
+Gather ruleset `*.md` files from **two roots**, then merge:
+
+1. **Engine `_core`** — if the `${CLAUDE_PLUGIN_ROOT}` environment variable is set
+   (ClaudeGuard is running as an installed plugin), include
+   `${CLAUDE_PLUGIN_ROOT}/rulesets/_core/*.md`.
+2. **Project policy** — always include every `*.md` under the project's
+   `rulesets/` directory (`rulesets/house/`, plus any vendored or overriding
+   `rulesets/_core/`).
+
+**Dedupe by `id`.** If the same rule `id` appears in both roots, the **project
+copy wins** — a repo can override a shipped core rule by committing its own file
+with that `id`. (If `${CLAUDE_PLUGIN_ROOT}` is unset, only the project root is
+read, which is the vendored / self-test case.)
+
+For each resulting ruleset file:
 
 - Parse its frontmatter (`id`, `severity`, `applies_to`, optional `enabled`).
 - Skip it if the config sets `rules.<id>.enabled: false`.

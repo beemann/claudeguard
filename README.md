@@ -27,6 +27,46 @@ That design has three consequences worth stating up front:
 - **Determinism & auditability.** The output is a verdict table plus a parseable
   JSON block — diffable, reviewable, and mappable to a CI exit code.
 
+## Install
+
+Two ways to adopt ClaudeGuard, sharing one design — a universal **engine**
+(the gate skill, `_core` rules, runner scripts) plus per-project **policy**
+(`rulesets/house/`, `claudeguard.config.json`, the CI workflow).
+
+### As a Claude Code plugin
+
+```text
+/plugin marketplace add beemann/claudeguard
+/plugin install claudeguard@claudeguard
+```
+
+You immediately get two skills in every project: `claudeguard` (the gate) and
+`claudeguard-init` (bootstrap). To scaffold the gate into the current repo, ask:
+
+> *set up claudeguard* · *claudeguard init*
+
+The engine updates with `/plugin update`. When run as a plugin, the gate reads
+its `_core` rules from the plugin and your `house` rules from the project.
+
+### Standalone (any repo / CI)
+
+Vendors the engine + a policy template into your repo, self-contained with no
+plugin dependency — ideal for CI:
+
+```bash
+# POSIX
+scripts/install.sh /path/to/your/repo
+```
+```powershell
+# PowerShell
+./scripts/install.ps1 -Target C:\path\to\your\repo
+```
+
+The installer is idempotent: it refreshes engine files on every run and never
+overwrites your policy (`rulesets/house/`, `claudeguard.config.json`, an existing
+workflow). See [Forking into your project](#forking-into-your-project) for what
+it lays down.
+
 ## Why
 
 Static linters catch syntax; they don't catch *policy*. "We run everything
@@ -42,9 +82,12 @@ The procedure is defined in [`SKILL.md`](SKILL.md) and runs in five steps:
 
 1. **Resolve the diff.** Default base is `origin/main` (merge-base, so only the
    branch's own commits are judged); overridable per project or per run.
-2. **Resolve rulesets.** Read every `*.md` under `rulesets/`, honor
-   `claudeguard.config.json` (enable/disable, severity overrides), and keep only
-   rules whose `applies_to` globs match at least one changed file.
+2. **Resolve rulesets.** Read every `*.md` from the engine's `_core`
+   (`${CLAUDE_PLUGIN_ROOT}/rulesets/_core/` when installed as a plugin) and the
+   project's `rulesets/`, dedupe by `id` (the project copy wins so a repo can
+   override a shipped rule), honor `claudeguard.config.json` (enable/disable,
+   severity overrides), and keep only rules whose `applies_to` globs match at
+   least one changed file.
 3. **Smoke check (mandatory, anti-falsification).** For each kept rule, state how
    many changed files it *actually* applies to. A rule that matches zero files is
    dropped — the gate never invents violations to justify a rule.
@@ -206,11 +249,21 @@ in the diff.
 
 ## Forking into your project
 
-1. Copy `rulesets/`, `scripts/`, the skill, and the workflow into your repo.
-2. Replace `rulesets/house/` with your team's rules; keep `rulesets/_core/`.
-3. Tune `applies_to` globs and trip patterns to your stack (e.g. Bun vs npm,
+The fastest path is the [standalone installer](#standalone-any-repo--ci) or the
+`claudeguard-init` skill — both lay down exactly what's below. Under the hood it:
+
+1. Copies the engine into your repo: the gate skill →
+   `.claude/skills/claudeguard/SKILL.md`, `rulesets/_core/`, `scripts/check.*`,
+   and (if absent) the workflow.
+2. Seeds `rulesets/house/` and `claudeguard.config.json` only if they don't
+   already exist — your policy is never clobbered.
+
+Then make it yours:
+
+3. Replace `rulesets/house/` with your team's rules; keep `rulesets/_core/`.
+4. Tune `applies_to` globs and trip patterns to your stack (e.g. Bun vs npm,
    Drizzle vs Prisma, Hono vs Express).
-4. Set `base` in `claudeguard.config.json` to your integration branch.
+5. Set `base` in `claudeguard.config.json` to your integration branch.
 
 ## Design principles & non-goals
 
