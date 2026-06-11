@@ -26,3 +26,10 @@ Initial packaged release.
   `house` rules from the project, deduping by `id` with the project winning. This
   cleanly separates the shipped engine from per-project policy while keeping the
   vendored and self-test modes working unchanged.
+
+### Fixed
+- **`check.sh` verdict parser.** The POSIX runner anchored the verdict extraction
+  with `[A-Z]+$`, which never matched because the JSON line ends in `"` — so every
+  non-empty diff parsed as `UNKNOWN` and exited 2, failing CI even on a `PASS`.
+  Now extracts the quoted value with `sed`. (The PowerShell runner was unaffected.)
+  Caught by the first real CI run on a consumer repo.

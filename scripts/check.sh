@@ -36,7 +36,7 @@ claude -p "$PROMPT" \
 VERDICT="$(
   awk '/```json/{f=1;next} /```/{f=0} f' "$REPORT_MD" \
     | grep -oE '"verdict"[[:space:]]*:[[:space:]]*"[A-Z]+"' \
-    | tail -n1 | grep -oE '[A-Z]+$' || true
+    | tail -n1 | sed -E 's/.*"([A-Z]+)".*/\1/' || true
 )"
 
 echo ""
