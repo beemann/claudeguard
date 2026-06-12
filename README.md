@@ -2,6 +2,8 @@
 
 > A report-only, pre-merge **policy gate** that runs as a [Claude Code](https://claude.com/claude-code) skill.
 > It reads a diff, evaluates it against versioned rulesets, and emits a structured **PASS / WARN / FAIL** verdict. It never edits your code.
+>
+> **Install in one command** — `/plugin marketplace add beemann/claudeguard` then `/plugin install claudeguard@claudeguard`. ([What's new in 0.1.0](#whats-new-in-010))
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -26,6 +28,24 @@ That design has three consequences worth stating up front:
   would mutate the very diff a human just reviewed. ClaudeGuard reports; you act.
 - **Determinism & auditability.** The output is a verdict table plus a parseable
   JSON block — diffable, reviewable, and mappable to a CI exit code.
+
+## What's new in 0.1.0
+
+ClaudeGuard is now **packaged for one-step adoption** — no more copy-pasting files
+into your repo:
+
+- **Claude Code plugin + marketplace.** Install the gate and a `claudeguard-init`
+  bootstrap skill with two `/plugin` commands; the engine auto-updates via
+  `/plugin update`.
+- **`claudeguard-init` skill.** Ask *"set up claudeguard"* and it scaffolds the
+  policy template into the current repo for you.
+- **Standalone installer** (`scripts/install.{sh,ps1}`) for any repo or CI, with
+  no plugin dependency — idempotent, and it never clobbers your house rules or config.
+- **Engine / policy split.** Universal `_core` rules ship with the engine; your
+  `house` rules and config live in your repo. The gate resolves both and lets the
+  project override a shipped rule.
+
+Full notes in the [CHANGELOG](CHANGELOG.md).
 
 ## Install
 
