@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "claudeguard",
+  "description": "ClaudeGuard — a report-only, pre-merge policy gate that checks a diff against versioned rulesets and returns PASS/WARN/FAIL.",
+  "owner": {
+    "name": "Beeman",
+    "email": "beeman8990@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "claudeguard",
+      "source": "./",
+      "description": "Report-only pre-merge policy gate as a Claude Code skill.",
+      "category": "code-quality"
+    }
+  ]
+}

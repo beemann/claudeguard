@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "claudeguard",
+  "displayName": "ClaudeGuard",
+  "version": "0.1.0",
+  "description": "Report-only pre-merge policy gate. Checks a diff against versioned rulesets and returns PASS/WARN/FAIL. Never edits files.",
+  "author": {
+    "name": "Beeman",
+    "email": "beeman8990@gmail.com"
+  },
+  "homepage": "https://github.com/beemann/claudeguard",
+  "repository": "https://github.com/beemann/claudeguard",
+  "license": "MIT",
+  "keywords": ["policy", "gate", "code-review", "ci", "pre-merge"],
+  "skills": ["./"]
+}
