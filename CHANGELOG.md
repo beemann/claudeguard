@@ -6,6 +6,17 @@ plugin updates — bump it to ship changes to installed users.
 
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## 0.1.1
+
+### Fixed
+- **Headless gate stalling in plan mode.** Under the current Claude Code CLI, a
+  `--permission-mode plan` run could pause to request `ExitPlanMode` approval
+  instead of emitting the verdict — so CI got no report and failed even on a clean
+  diff (the runner parsed `UNKNOWN` → exit 2). The runner prompts (`check.ps1`,
+  `check.sh`) and `SKILL.md` now state explicitly that this is a read-only audit:
+  do not call `ExitPlanMode` or ask for approval; emit the verdict report
+  directly. Surfaced by ClaudeGuard gating its own release PR.
+
 ## 0.1.0
 
 Initial packaged release.

@@ -113,6 +113,11 @@ The overall verdict is:
 Emit **both** a human-readable table and a machine-readable JSON block, in this
 order.
 
+The verdict report **is** the deliverable. When invoked headless (e.g. by the CI
+runner in plan mode), do **not** call `ExitPlanMode`, do not present a plan, and
+do not pause for approval — this is a read-only audit with no implementation step
+to approve. Produce the report directly as your reply so the runner can parse it.
+
 ### Human report
 
 ```

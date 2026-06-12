@@ -28,6 +28,10 @@ Run the claudeguard skill. Gate the diff of the current branch against base ref
 '$BaseRef'. Follow SKILL.md exactly: resolve rulesets via claudeguard.config.json,
 run the mandatory smoke check, evaluate, and output the human report followed by
 the machine-readable ``````json verdict block. Do not edit any files.
+
+This is a read-only audit running headless. Do NOT call ExitPlanMode and do NOT
+ask for approval or present a plan — the verdict report IS your deliverable.
+Emit the human table and the ``````json block directly as your reply.
 "@
 
 # Headless, read-only.
