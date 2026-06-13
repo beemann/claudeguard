@@ -31,17 +31,23 @@ the machine-readable ``````json verdict block. Do not edit any files.
 
 This is a read-only audit running headless. Do NOT call ExitPlanMode and do NOT
 ask for approval or present a plan — the verdict report IS your deliverable.
-Emit the human table and the ``````json block directly as your reply.
+Emit the human table and the ``````json block directly as your reply, and end with
+a final line exactly: claudeguard-verdict: <PASS|WARN|FAIL>.
 "@
 
 # Headless, read-only.
 claude -p $prompt --permission-mode plan | Tee-Object -FilePath $ReportMd
 
-# Extract the last JSON verdict block and read its verdict.
+# Read the verdict. Prefer the machine sentinel line; fall back to the JSON block.
 $report = Get-Content $ReportMd -Raw
 $verdict = "UNKNOWN"
-$matches = [regex]::Matches($report, '"verdict"\s*:\s*"([A-Z]+)"')
-if ($matches.Count -gt 0) { $verdict = $matches[$matches.Count - 1].Groups[1].Value }
+$sentinel = [regex]::Matches($report, '(?im)^\s*claudeguard-verdict:\s*([A-Za-z]+)\s*$')
+if ($sentinel.Count -gt 0) {
+  $verdict = $sentinel[$sentinel.Count - 1].Groups[1].Value.ToUpper()
+} else {
+  $json = [regex]::Matches($report, '"verdict"\s*:\s*"([A-Z]+)"')
+  if ($json.Count -gt 0) { $verdict = $json[$json.Count - 1].Groups[1].Value }
+}
 
 Write-Host ""
 Write-Host "ClaudeGuard parsed verdict: $verdict"

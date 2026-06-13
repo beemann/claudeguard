@@ -1,0 +1,8 @@
+const k = "AKIA1234567890ABCDEF"
+token = "sk-ant-api03-Th1sLooksLikeARealKey00"
+gh = "ghp_0123456789abcdefghij0123456789abcdef"
+goog = "AIzaSyA0123456789abcdefghijklmnopqrstuv"
+-----BEGIN RSA PRIVATE KEY-----
+DB_PASSWORD = "S3cr3tP4ssw0rd"
+db = "postgres://admin:hunter2pwd@db.internal"
+stripe = "sk_live_0123456789abcdefABCDEF"

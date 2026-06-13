@@ -71,7 +71,8 @@ read, which is the vendored / self-test case.)
 
 For each resulting ruleset file:
 
-- Parse its frontmatter (`id`, `severity`, `applies_to`, optional `enabled`).
+- Parse its frontmatter (`id`, `severity`, `applies_to`, optional `enabled`, and
+  optional `detect`/`exempt` regex lists — see step 4).
 - Skip it if the config sets `rules.<id>.enabled: false`.
 - Apply a `severity` override from the config if present.
 - Keep it only if at least one changed file path matches one of its
@@ -87,11 +88,31 @@ same measurement-first discipline the rulesets themselves enforce.
 
 ### 4. Evaluate
 
-For each kept ruleset, read its body (the human-readable contract) and judge
-the diff against it. A violation requires concrete evidence in the diff: a
-`file`, a `line` (best effort), and the **exact added line(s)** that trip the
-rule. No evidence → no violation. Judge only **added/modified** lines (`+`),
-not pre-existing context, unless the rule explicitly targets removals.
+Judge only **added/modified** lines (`+`), never pre-existing context, unless a
+rule explicitly targets removals. Strip the leading `+` before matching.
+
+**Rules with `detect` patterns — hybrid (deterministic detection).** First build
+the candidate set *deterministically*: an added line is a candidate when it
+matches any `detect` regex (case-insensitive ERE) and does **not** match any
+`exempt` regex. Apply the patterns literally — e.g.
+`git diff --merge-base <base> | grep -iE -e '<detect>'` — so detection is
+reproducible and a real hit cannot be silently missed. Then adjudicate **only the
+candidates** against the rule body, applying the remaining prose exemptions the
+regex cannot decide (e.g. test fixtures, doc examples, the `=======`-between-markers
+nuance). A candidate the body does not exempt is a violation. These `detect`/
+`exempt` patterns are validated offline by `scripts/test-rules.{sh,ps1}` against
+`fixtures/`, so the deterministic layer is regression-tested.
+
+**Rules without `detect` — judgment.** Read the body (the human-readable contract)
+and judge the diff against it directly.
+
+Every violation requires concrete evidence: a `file`, a `line` (best effort), and
+the **exact added line** that trips the rule. No evidence → no violation.
+
+**A rule never flags its own test data.** Lines under `fixtures/<rule-id>/` are
+that rule's intentional fixtures (and a rule body's own quoted examples are
+illustrative) — they are crafted to match and must **not** be reported as
+violations.
 
 Be precise, not zealous. A false `FAIL` erodes trust in the gate faster than a
 missed `LOW`. When genuinely uncertain, record it as `severity: info` with a
@@ -157,8 +178,18 @@ Wrap in a fenced ```json block so CI can parse it:
 }
 ```
 
-When run by CI, the wrapper script maps `verdict` to an exit code:
-`PASS`/`WARN` → 0, `FAIL` → 1.
+### Verdict line (machine sentinel)
+
+After the JSON block, emit **one final line**, exactly:
+
+```
+claudeguard-verdict: FAIL
+```
+
+(`PASS` | `WARN` | `FAIL`.) This single line is what the runner reads to decide
+the exit code — it does not scrape the verdict out of prose. The JSON block stays
+for humans and CI artifacts. When run by CI, the wrapper script maps the verdict
+to an exit code: `PASS`/`WARN` → 0, `FAIL` → 1.
 
 ## Hard constraints
 
