@@ -4,6 +4,31 @@ severity: critical
 applies_to:
   - "**/*"
 enabled: true
+detect:
+  - 'AKIA[0-9A-Z]{16}'
+  - 'ASIA[0-9A-Z]{16}'
+  - 'gh[posru]_[A-Za-z0-9]{30,}'
+  - 'github_pat_[A-Za-z0-9_]{20,}'
+  - 'sk-[A-Za-z0-9_-]{16,}'
+  - 'xox[baprs]-[A-Za-z0-9-]{10,}'
+  - 'AIza[0-9A-Za-z_-]{30,}'
+  - '[sr]k_live_[0-9A-Za-z]{16,}'
+  - 'SG[.][A-Za-z0-9_-]{16,}[.][A-Za-z0-9_-]{16,}'
+  - 'npm_[A-Za-z0-9]{30,}'
+  - '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  - '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)[^A-Za-z0-9]{1,6}[A-Za-z0-9_./+=-]{6,}'
+  - '[a-z][a-z0-9+.-]*://[^/ :@]+:[^/ :@]+@'
+exempt:
+  - 'AKIAIOSFODNN7EXAMPLE'
+  - 'your-api-key-here'
+  - 'your_api_key'
+  - 'changeme'
+  - 'placeholder'
+  - 'xxxxxxxx'
+  - 'redacted'
+  - 'process[.]env'
+  - 'import[.]meta[.]env'
+  - 'os[.]getenv'
 ---
 
 # No hardcoded secrets

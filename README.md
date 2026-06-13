@@ -111,9 +111,11 @@ The procedure is defined in [`SKILL.md`](SKILL.md) and runs in five steps:
 3. **Smoke check (mandatory, anti-falsification).** For each kept rule, state how
    many changed files it *actually* applies to. A rule that matches zero files is
    dropped — the gate never invents violations to justify a rule.
-4. **Evaluate.** Judge only added/modified (`+`) lines. Every violation must cite
-   concrete evidence: a file, a best-effort line, and the exact offending line.
-   No quote, no claim.
+4. **Evaluate.** Judge only added/modified (`+`) lines. Rules that declare `detect`
+   patterns get **deterministic candidate detection** (regex finds the hits; the
+   model only adjudicates them against the rule's exemptions); rules without
+   `detect` are judged by the model directly. Every violation must cite concrete
+   evidence: a file, a best-effort line, and the exact offending line.
 5. **Verdict.** `FAIL` if any violation is `high`/`critical`; `WARN` for
    `medium`/`low`; `PASS` if clean. The threshold is configurable via `block_on`
    (default `high`).
@@ -248,6 +250,10 @@ applies_to:
   - "**/*.ts"
   - "**/*.py"
 enabled: true
+detect:                       # optional: deterministic candidate detection (ERE)
+  - 'TODO|FIXME'
+exempt:                       # optional: suppress candidates that cite a ticket
+  - '[A-Z]+-[0-9]+|#[0-9]+'
 ---
 
 # No TODO without a tracking ticket
@@ -261,6 +267,19 @@ Trip on added lines matching `TODO`/`FIXME` not followed by a ticket id
 
 **Suggestion:** link a ticket, or do the work now.
 ```
+
+**Deterministic detection (optional).** A rule may carry `detect` (and `exempt`)
+regex lists. Detection then runs *deterministically*: a changed line is a candidate
+when it matches a `detect` pattern and no `exempt` pattern, and the model only
+*adjudicates* those candidates against the rule body. This makes recall
+reproducible — a real hit can't be silently missed — and is the right shape for
+pattern rules (`no-secrets`, `no-conflict-markers`, `no-any`). Rules with no
+`detect` are judged purely by the model, as before.
+
+**Test your patterns.** Add `fixtures/<rule-id>/should-fail.txt` and
+`should-pass.txt`, then run `scripts/test-rules.sh` (or `.ps1`). It asserts every
+`detect`/`exempt` pattern against the fixtures with **no LLM and no API key**, so
+the deterministic layer is regression-tested for free.
 
 Keep `_core` rules uncontroversial; anything debatable belongs in `house/`.
 Every rule body should state, in plain language, **what a `FAIL` looks like**,

@@ -28,19 +28,27 @@ the human report followed by the machine-readable \`\`\`json verdict block. \
 Do not edit any files. \
 This is a read-only audit running headless. Do NOT call ExitPlanMode and do NOT \
 ask for approval or present a plan — the verdict report IS your deliverable. \
-Emit the human table and the \`\`\`json block directly as your reply."
+Emit the human table and the \`\`\`json block directly as your reply, and end with \
+a final line exactly: claudeguard-verdict: <PASS|WARN|FAIL>."
 
 # Headless, read-only. The skill never edits; we still scope tools defensively.
 claude -p "$PROMPT" \
   --permission-mode plan \
   | tee "$REPORT_MD"
 
-# Extract the last JSON verdict block from the report and read .verdict.
+# Read the verdict. Prefer the machine sentinel line; fall back to the JSON block.
 VERDICT="$(
-  awk '/```json/{f=1;next} /```/{f=0} f' "$REPORT_MD" \
-    | grep -oE '"verdict"[[:space:]]*:[[:space:]]*"[A-Z]+"' \
-    | tail -n1 | sed -E 's/.*"([A-Z]+)".*/\1/' || true
+  grep -iE '^[[:space:]]*claudeguard-verdict:[[:space:]]*[A-Za-z]+' "$REPORT_MD" \
+    | tail -n1 | sed -E 's/.*:[[:space:]]*([A-Za-z]+).*/\1/' \
+    | tr '[:lower:]' '[:upper:]' || true
 )"
+if [ -z "$VERDICT" ]; then
+  VERDICT="$(
+    awk '/```json/{f=1;next} /```/{f=0} f' "$REPORT_MD" \
+      | grep -oE '"verdict"[[:space:]]*:[[:space:]]*"[A-Z]+"' \
+      | tail -n1 | sed -E 's/.*"([A-Z]+)".*/\1/' || true
+  )"
+fi
 
 echo ""
 echo "ClaudeGuard parsed verdict: ${VERDICT:-UNKNOWN}"

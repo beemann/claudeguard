@@ -1,0 +1,6 @@
+function f(x: any) {}
+const y = z as any;
+let v: Array<any> = [];
+// @ts-ignore
+const a: any[] = [];
+function g(): Record<string, any> { return {}; }

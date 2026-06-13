@@ -1,0 +1,5 @@
+function f(x: unknown) {}
+const y = z as Foo;
+// @ts-expect-error legacy boundary
+interface User { id: string }
+const many = items.map(fn)

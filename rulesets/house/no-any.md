@@ -5,6 +5,15 @@ applies_to:
   - "**/*.ts"
   - "**/*.tsx"
 enabled: true
+detect:
+  - ': *any\b'
+  - '\bas any\b'
+  - '<any>'
+  - '\bany\[\]'
+  - 'Array<any>'
+  - 'Record<[^,>]+, *any>'
+  - '@ts-ignore'
+  - '@ts-nocheck'
 ---
 
 # No `any`, no silent escape hatches

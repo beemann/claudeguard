@@ -1,0 +1,6 @@
+API_KEY = "your-api-key-here"
+aws = "AKIAIOSFODNN7EXAMPLE"
+const db = process.env.DATABASE_URL
+password = process.env.DB_PASSWORD
+const timeout = 30000
+secret: false

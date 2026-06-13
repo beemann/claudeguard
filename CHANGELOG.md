@@ -6,6 +6,24 @@ plugin updates — bump it to ship changes to installed users.
 
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## 0.2.0
+
+Strengthen the core: push determinism down toward the rules.
+
+### Added
+- **Deterministic candidate detection (`detect`/`exempt`).** Pattern rules can now
+  carry optional `detect` (and `exempt`) regex lists in their frontmatter. Detection
+  becomes reproducible — a real hit can't be silently missed — while the LLM's job
+  shrinks to *adjudicating* the bounded candidate set (applying the prose exemptions
+  a regex can't decide). Shipped for `no-secrets`, `no-conflict-markers`, `no-any`;
+  other rules stay judgment-only. Backward compatible (the fields are optional).
+- **Testable rules.** `fixtures/<rule-id>/{should-fail,should-pass}.txt` plus
+  `scripts/test-rules.{sh,ps1}` assert each rule's `detect`/`exempt` patterns —
+  **no LLM, no API key** — so the deterministic layer is regression-tested for free.
+- **Machine verdict sentinel.** The skill now ends with a `claudeguard-verdict: …`
+  line; the runner reads that instead of scraping the verdict out of prose,
+  eliminating the parser-fragility class (the JSON block remains a fallback).
+
 ## 0.1.1
 
 ### Fixed

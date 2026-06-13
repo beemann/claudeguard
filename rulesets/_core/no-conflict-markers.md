@@ -4,6 +4,10 @@ severity: high
 applies_to:
   - "**/*"
 enabled: true
+detect:
+  - '^<<<<<<< '
+  - '^>>>>>>> '
+  - '^\|\|\|\|\|\|\| '
 ---
 
 # No leftover merge conflict markers
