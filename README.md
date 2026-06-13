@@ -3,7 +3,7 @@
 > A report-only, pre-merge **policy gate** that runs as a [Claude Code](https://claude.com/claude-code) skill.
 > It reads a diff, evaluates it against versioned rulesets, and emits a structured **PASS / WARN / FAIL** verdict. It never edits your code.
 >
-> **Install in one command** — `/plugin marketplace add beemann/claudeguard` then `/plugin install claudeguard@claudeguard`. ([What's new in 0.1.0](#whats-new-in-010))
+> **Install in one command** — `/plugin marketplace add beemann/claudeguard` then `/plugin install claudeguard@claudeguard`. ([What's new in 0.2.0](#whats-new-in-020))
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -29,21 +29,25 @@ That design has three consequences worth stating up front:
 - **Determinism & auditability.** The output is a verdict table plus a parseable
   JSON block — diffable, reviewable, and mappable to a CI exit code.
 
-## What's new in 0.1.0
+## What's new in 0.2.0
 
-ClaudeGuard is now **packaged for one-step adoption** — no more copy-pasting files
-into your repo:
+**A stronger, more deterministic core.** ClaudeGuard is a deterministic gate built
+on a non-deterministic engine; 0.2.0 pushes determinism down toward the rules:
 
-- **Claude Code plugin + marketplace.** Install the gate and a `claudeguard-init`
-  bootstrap skill with two `/plugin` commands; the engine auto-updates via
-  `/plugin update`.
-- **`claudeguard-init` skill.** Ask *"set up claudeguard"* and it scaffolds the
-  policy template into the current repo for you.
-- **Standalone installer** (`scripts/install.{sh,ps1}`) for any repo or CI, with
-  no plugin dependency — idempotent, and it never clobbers your house rules or config.
-- **Engine / policy split.** Universal `_core` rules ship with the engine; your
-  `house` rules and config live in your repo. The gate resolves both and lets the
-  project override a shipped rule.
+- **Deterministic `detect`/`exempt`.** A rule can carry regex lists in its
+  frontmatter. Detection of candidates is then reproducible — a real hit can't be
+  silently missed — and the model only *adjudicates* those candidates. Shipped for
+  `no-secrets`, `no-conflict-markers`, `no-any`; other rules stay judgment-only.
+- **Testable rules.** Fixtures + `scripts/test-rules.{sh,ps1}` assert every
+  `detect`/`exempt` pattern with **no LLM and no API key**, so the deterministic
+  layer is regression-tested for free.
+- **Robust verdict.** The skill ends with a `claudeguard-verdict:` line the runner
+  reads directly — no more scraping the verdict out of prose.
+
+**0.1.0 made it installable in one step:** Claude Code plugin + marketplace, a
+`claudeguard-init` bootstrap skill, a standalone `scripts/install.{sh,ps1}` for any
+repo or CI, and the engine/policy split (universal `_core` ships with the engine;
+your `house` rules and config live in your repo).
 
 Full notes in the [CHANGELOG](CHANGELOG.md).
 
