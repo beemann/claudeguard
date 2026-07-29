@@ -1,0 +1,9 @@
+# Normalise line endings. The shell scripts here are the gate's entry point in CI
+# and on developer machines; checked out with CRLF they do not run at all — bash
+# reads `set -euo pipefail\r` and reports `pipefail: invalid option name`. That is
+# a one-character failure that looks like a broken tool rather than a broken
+# checkout, so it is fixed here rather than explained in the README.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary

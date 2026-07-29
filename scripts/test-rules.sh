@@ -96,4 +96,20 @@ done
 
 echo ""
 echo "test-rules: $tested rule(s) tested, $skipped skipped, $fails assertion failure(s)."
+
+# A harness that tested nothing is not a harness that passed.
+#
+# This is not hypothetical: on a checkout with CRLF line endings, `$0=="---"` never
+# matches `---\r`, so no frontmatter is ever parsed, every rule is classified
+# "judgment-only, no detect patterns", and the run reported 0 tested / 3 skipped and
+# exited 0 — a clean bill of health from a check that had stopped checking. Reaching
+# the end without having tested a single rule is a failure of the harness, not a pass
+# for the rules.
+if [ "$tested" -eq 0 ]; then
+  echo "test-rules: FAIL — no rule was tested. Fixtures or frontmatter are not being"
+  echo "            parsed (CRLF line endings are the usual cause). Refusing to"
+  echo "            report success for a check that ran nothing."
+  exit 1
+fi
+
 [ "$fails" -eq 0 ]

@@ -39,7 +39,10 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          chmod +x scripts/check.sh
+          # No chmod here on purpose: the executable bit is committed (100755).
+          # Mutating the tree before the gate reads it makes the gate judge a diff
+          # that is not the PR's diff — it surfaces as a phantom mode-only entry for
+          # the very file being chmod-ed. The gate must see exactly what review sees.
           set +e
           scripts/check.sh "origin/${{ github.base_ref }}"
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"

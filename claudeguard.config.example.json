@@ -5,6 +5,7 @@
   "rules": {
     "no-secrets": { "enabled": true },
     "no-conflict-markers": { "enabled": true },
+    "no-invisible-characters": { "enabled": true },
     "docker-only": { "enabled": true },
     "measurement-first": { "enabled": true },
     "no-any": { "enabled": true },
