@@ -86,7 +86,43 @@ files it actually applies to**. If a rule applies to zero files, drop it. This
 prevents reporting violations for code paths the change never touches — the
 same measurement-first discipline the rulesets themselves enforce.
 
-### 4. Evaluate
+A dropped (inert) rule is **not** a failure — it simply had nothing in this diff
+to judge. Render it with the neutral marker, never a red one (see *Marker
+semantics* under Output format). A `critical` rule that matched zero files is
+still inert, not critical-failed.
+
+### 4. Run declared probes (mandatory where a rule declares one)
+
+Some defect classes **cannot be judged by reading the diff** — the evidence is
+invisible in rendered text, so an agent that "reads carefully" reaches a confident
+wrong answer. A ruleset may therefore declare one or more **probes**: exact
+read-only commands whose *output* is the evidence.
+
+When a kept ruleset declares probes:
+
+1. **Run every one of them.** Reading the diff and concluding "looks clean" is not
+   evaluating such a rule. Report what the probe printed, not an impression.
+2. **Each line of probe output is a candidate violation** — cite it with file and
+   line, in the rule's own terms.
+3. **If a probe cannot run** (the command is not permitted by the tool whitelist,
+   the binary is missing, it errors), the rule's status is **`⚠️ UNEVALUATED`**, not
+   clean and not inert. Say which probe failed and why.
+
+**An unevaluated rule NEVER renders green and never counts toward `PASS`.** A gate
+that reports clean because it stopped being able to check is worse than no gate:
+the report looks identical to a real pass. Treat `UNEVALUATED` on a `high` or
+`critical` rule as blocking unless the human overrides it.
+
+Probes must be expressible within this gate's read-only tool whitelist: `Read`,
+`Grep`, `Glob`, and read-only `git` invocations. A rule whose probe needs anything
+else is a rule this gate cannot enforce — fix the probe or the whitelist, do not
+quietly downgrade it to a judgement call.
+
+Probes and `detect` patterns are complements, not alternatives: `detect` covers
+rules where a regex over the rendered diff can find the candidate, probes cover
+classes that are not present in the rendered diff at all.
+
+### 5. Evaluate
 
 Judge only **added/modified** lines (`+`), never pre-existing context, unless a
 rule explicitly targets removals. Strip the leading `+` before matching.
@@ -118,14 +154,17 @@ Be precise, not zealous. A false `FAIL` erodes trust in the gate faster than a
 missed `LOW`. When genuinely uncertain, record it as `severity: info` with a
 note rather than forcing a `FAIL`.
 
-### 5. Verdict
+### 6. Verdict
 
 The overall verdict is:
 
-- `FAIL` if any violation has effective severity `high` or `critical`.
+- `FAIL` if any violation has effective severity `high` or `critical`, **or if a
+  rule at that severity is `UNEVALUATED`** (a check that could not run is not a
+  check that passed).
 - `WARN` if the worst violation is `medium` or `low` (merge allowed, attention
-  advised).
-- `PASS` if there are no violations.
+  advised), or if a `medium`/`low` rule is `UNEVALUATED`.
+- `PASS` if there are no violations and every kept rule was either checked or
+  inert.
 
 (`block_on` in the config may raise/lower this threshold — default `high`.)
 
@@ -138,6 +177,27 @@ The verdict report **is** the deliverable. When invoked headless (e.g. by the CI
 runner in plan mode), do **not** call `ExitPlanMode`, do not present a plan, and
 do not pause for approval — this is a read-only audit with no implementation step
 to approve. Produce the report directly as your reply so the runner can parse it.
+
+### Marker semantics (fixed — a skimmer must never misread a marker)
+
+Four states, four colors. The rule is absolute: **red means a problem and nothing
+else.** Someone who only glances at the icons must come away correct.
+
+- ✅ **green** — rule applied to the diff and found nothing wrong (checked & clean).
+- ➖ **grey / neutral** — rule was inert: it matched zero changed files, so there
+  was nothing to judge. **Not** a failure. Never render this red, even for a
+  `critical` rule — an untouched code path cannot be violated.
+- ⚠️ **amber — `UNEVALUATED`** — the rule matched files but could not actually be
+  checked: a declared probe would not run. This is **not** a pass and must never
+  be shown as one; name the probe that failed. Distinct from grey on purpose —
+  grey means "nothing to check", amber means "something to check that nobody
+  checked".
+- ❌ **red** — an actual violation. This is the only state that ever earns a red
+  marker, and only with cited evidence.
+
+Do not use ❌, ✗, 🔴, or the word "dropped" with a red mark for an inert rule.
+"Inert" reads as benign; a red X reads as broken. Keep them visually opposite.
+And never collapse ⚠️ into ✅ — "could not check" is not "fine".
 
 ### Human report
 
@@ -195,7 +255,15 @@ to an exit code: `PASS`/`WARN` → 0, `FAIL` → 1.
 
 - **Never edit, stage, or commit files.** This skill is a gate, not a fixer.
 - **Never invent violations** to make a ruleset look useful. Inert rule → drop.
+- **Red marks mean violations only.** An inert or skipped rule uses the neutral
+  marker (➖), never red — a glance must read red = problem, grey = didn't apply,
+  green = clean. This holds regardless of the rule's severity.
 - **Cite evidence** for every violation (exact added line). No quote, no claim.
+- **Never judge a probe-carrying rule by reading.** If the rule declares a probe,
+  its output is the evidence; if the probe did not run, the rule is `UNEVALUATED`.
+  Some defect classes are invisible in rendered text, and confident prose about
+  them is exactly the failure this gate has already shipped once.
+- **`UNEVALUATED` never renders green** and never counts toward `PASS`.
 - Keep the report deterministic in structure so diffs of reports are reviewable.
 
 ## Adding a rule
@@ -204,3 +272,19 @@ Drop a new `*.md` into `rulesets/_core/` (universal) or `rulesets/house/`
 (this team's). Give it `id`, `severity`, `applies_to` frontmatter and a body
 that states, in plain language, what a `FAIL` looks like and why. No engine
 change required — the procedure above picks it up automatically.
+
+**If a human reviewer could not spot the violation by eye, the rule needs a
+probe** — a read-only command whose output is the evidence, written in the rule
+body under a heading that makes running it non-optional. Keep probes inside this
+gate's whitelist (`Read`, `Grep`, `Glob`, read-only `git`); anything else cannot
+run headless in CI, and a rule that cannot run is a rule that quietly passes.
+
+Two known blind spots to design around, both measured:
+
+- **`Grep` (ripgrep) skips binary files**, so it cannot see a NUL — the very
+  thing that makes a file binary.
+- **`git diff --numstat`** reports binary files as `-` `-`, which catches that
+  case, but says nothing about characters that keep a file textual (bidi
+  overrides, zero-width).
+
+Neither is sufficient alone; `no-invisible-characters` therefore declares both.
