@@ -4,3 +4,5 @@ const db = process.env.DATABASE_URL
 password = process.env.DB_PASSWORD
 const timeout = 30000
 secret: false
+API_KEY = os.getenv("API_KEY")
+apiKey: import.meta.env.VITE_API_KEY

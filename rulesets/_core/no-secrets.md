@@ -18,7 +18,7 @@ detect:
   - '-----BEGIN [A-Z ]*PRIVATE KEY-----'
   - '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)[^A-Za-z0-9]{1,6}[A-Za-z0-9_./+=-]{6,}'
   - '[a-z][a-z0-9+.-]*://[^/ :@]+:[^/ :@]+@'
-exempt:
+exempt_match:
   - 'AKIAIOSFODNN7EXAMPLE'
   - 'your-api-key-here'
   - 'your_api_key'
@@ -61,5 +61,15 @@ Rotate any key that already reached a commit.
 `xxxxxxxx`, `changeme`, `AKIAIOSFODNN7EXAMPLE`); test fixtures clearly using fake
 values; lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
 `Cargo.lock`, `poetry.lock`) whose long strings are integrity digests, not
-secrets. Quote the exact literal as evidence; never quote the full secret if it
-is real — cite enough to identify it (prefix + length).
+secrets.
+
+The frontmatter lists the dummies and the environment references under
+`exempt_match`, not `exempt`: they excuse only the match they overlap. A line that
+reads a key from the environment *and* falls back to a literal —
+`process.env.API_KEY || "sk-live-…"` — is still a candidate, because the
+environment reference says nothing about the literal beside it. That fallback is
+one of the commonest ways a real key reaches a repository.
+
+**Evidence:** never reproduce a credential in the report — it is published (job
+summary, PR comment). Cite the file, the line, the provider prefix and the length,
+e.g. `sk-ant-… (40 chars)`.
