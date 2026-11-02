@@ -29,33 +29,39 @@ Pick the script by OS and run it with the project directory as the target
 (default: the current working directory). Pass the engine root through so the
 script copies from the right place.
 
-- **Windows / PowerShell:**
+- **Windows / PowerShell** (`-ExecutionPolicy Bypass` because the default policy
+  refuses to run script files):
   ```powershell
-  & "${env:CLAUDE_PLUGIN_ROOT}\scripts\install.ps1" -Target "."
+  powershell -NoProfile -ExecutionPolicy Bypass -File "$env:CLAUDE_PLUGIN_ROOT\scripts\install.ps1" -Target "."
   ```
-- **macOS / Linux:**
+- **macOS / Linux** (through `bash`, so the script's executable bit does not
+  matter):
   ```bash
-  CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}" "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" .
+  CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" .
   ```
 
 The installer is idempotent: it refreshes engine files (`.claude/skills/claudeguard/SKILL.md`,
-`rulesets/_core/`, `scripts/check.*`) and leaves policy files untouched if they
-already exist (`rulesets/house/`, `claudeguard.config.json`, an existing
+`rulesets/_core/`, `scripts/check.*`, `scripts/test-rules.*`, the `_core` rules'
+fixtures) and leaves policy files untouched if they already exist
+(`rulesets/house/` with its fixtures, `claudeguard.config.json`, an existing
 `.github/workflows/claudeguard.yml`).
 
 ### 3. Report what was scaffolded
 
-Relay the installer's output, then state the two manual steps it cannot do for
-the user:
+Relay the installer's output, then state the manual steps it cannot do for the
+user:
 
 1. **Set the base branch** — edit `claudeguard.config.json` and set `base` to the
-   project's integration branch (e.g. `origin/dev`, `origin/main`, `origin/master`).
+   project's integration branch (e.g. `origin/dev`, `origin/main`, `origin/master`);
+   the runners default to it. If pull requests target that branch, add it to
+   `on.pull_request.branches` in `.github/workflows/claudeguard.yml`.
 2. **Enable CI** — add the repository secret `ANTHROPIC_API_KEY` so the GitHub
    Actions workflow can run the gate.
 
 Optionally suggest tuning `rulesets/house/` to the project's stack (e.g. Bun vs
-npm, Drizzle vs Prisma, Hono vs Express), and offer to run the gate locally with
-`scripts/check.sh origin/<base>` (or `scripts/check.ps1 -BaseRef origin/<base>`).
+npm, Drizzle vs Prisma, Hono vs Express) — every rule with `detect` patterns needs
+fixtures, checked by `scripts/test-rules.sh` — and offer to run the gate locally
+with `bash scripts/check.sh` (or `scripts/check.ps1`).
 
 ## Hard constraints
 

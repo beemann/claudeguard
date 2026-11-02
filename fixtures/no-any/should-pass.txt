@@ -3,3 +3,8 @@ const y = z as Foo;
 // @ts-expect-error legacy boundary
 interface User { id: string }
 const many = items.map(fn)
+const anything = compute();
+const x = anyOf(items);
+// works for any input
+type Company = { name: string };
+if (a || anyone) {}

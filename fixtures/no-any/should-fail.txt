@@ -4,3 +4,10 @@ let v: Array<any> = [];
 // @ts-ignore
 const a: any[] = [];
 function g(): Record<string, any> { return {}; }
+const m: Map<string, any> = new Map();
+function id<T = any>(x: T) { return x; }
+type T = any;
+type Fn = () => any;
+let u: string | any;
+const x = <any>y;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
