@@ -7,13 +7,16 @@ applies_to:
 enabled: true
 detect:
   - ': *any\b'
-  - '\bas any\b'
-  - '<any>'
+  - '\bas +any\b'
+  - '< *any *[,>]'
+  - ', *any *[,>]'
+  - '= *any *[,>;]'
+  - '=> *any\b'
+  - '[|&] *any\b'
   - '\bany\[\]'
-  - 'Array<any>'
-  - 'Record<[^,>]+, *any>'
   - '@ts-ignore'
   - '@ts-nocheck'
+  - 'no-explicit-any'
 ---
 
 # No `any`, no silent escape hatches
@@ -23,10 +26,17 @@ hatch in TypeScript.
 
 Trip on added lines containing:
 
-- `: any`, `as any`, `<any>`
-- `any[]`, `Array<any>`, `Record<string, any>`
+- `: any`, `as any`, `<any>`, `any[]`
+- `any` as a type argument or default: `Array<any>`, `Record<string, any>`,
+  `Map<K, any>`, `<T = any>`, `type X = any`
+- `any` in a union or intersection, or as an arrow return type:
+  `string | any`, `() => any`
 - `// @ts-ignore` and `// @ts-nocheck`
 - `@typescript-eslint/no-explicit-any` disable comments
+
+Every item above has a `detect` pattern and a line in
+`fixtures/no-any/should-fail.txt`: under the hybrid procedure only candidates are
+adjudicated, so a trip condition without a pattern would never be looked at.
 
 **Why:** `any` disables the type checker exactly where bugs hide — at
 boundaries and on untrusted input. "Explicit is King": prefer `unknown` plus a

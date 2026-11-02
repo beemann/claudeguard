@@ -1,10 +1,11 @@
 {
-  "$schema": "Optional. Copy to claudeguard.config.json and edit per project.",
+  "$comment": "Optional. Copy to claudeguard.config.json and edit per project.",
   "base": "origin/main",
   "block_on": "high",
   "rules": {
     "no-secrets": { "enabled": true },
     "no-conflict-markers": { "enabled": true },
+    "no-invisible-characters": { "enabled": true },
     "docker-only": { "enabled": true },
     "measurement-first": { "enabled": true },
     "no-any": { "enabled": true },

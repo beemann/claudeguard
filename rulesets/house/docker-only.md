@@ -10,6 +10,8 @@ applies_to:
   - "**/justfile"
   - "**/Taskfile.yml"
   - "**/Taskfile.yaml"
+  - ".githooks/**"
+  - ".husky/**"
 enabled: true
 ---
 
@@ -36,11 +38,18 @@ from the container environment, hide "works on my machine" bugs, and break the
 reproducibility guarantee.
 
 **Scope note:** this rule deliberately targets only files whose lines *are*
-host executions — `*.sh`, `*.ps1`, `Makefile`, `*.mk`, `justfile`, `Taskfile`.
+host executions — `*.sh`, `*.ps1`, `Makefile`, `*.mk`, `justfile`, `Taskfile`,
+and git hooks (`.githooks/`, `.husky/`).
 It does **not** scan `package.json` scripts (those run in-container when invoked
 via `docker compose exec app npm run …`), CI workflows (the runner legitimately
 sets up the host), or documentation/prose. Flagging those produces noise, and a
 false `FAIL` erodes the gate faster than a missed `LOW`.
+
+**Git hooks are listed by directory because a hook has no extension.** An
+extension list cannot see `.githooks/pre-push`, which runs on the host on every
+push — the one file this rule most needs to read. Selection is still path-based,
+so an extension-free script anywhere else is missed; add its path here if you
+have one.
 
 **Suggestion:** prefix with `docker compose exec app `, e.g.
 `docker compose exec app npm run build`.

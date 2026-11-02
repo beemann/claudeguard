@@ -1,10 +1,12 @@
-name: ClaudeGuard Pre-Main Gate
+name: ClaudeGuard Pre-Merge Gate
 
-# Report-only policy gate. Blocks the merge when a high/critical house rule is
-# violated. Never edits code — a human decides what to do with a FAIL.
+# Report-only policy gate. Blocks the merge when a violation at or above
+# `block_on` (default: high) is found, or when no verdict could be produced.
+# Never edits code — a human decides what to do with a FAIL.
 
 on:
   pull_request:
+    # Add your integration branch (e.g. dev) if pull requests target it.
     branches: [main, master]
 
 # Cancel superseded runs on the same PR.
@@ -14,34 +16,59 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
+  rules:
+    # The deterministic layer: every `detect` pattern against its fixtures.
+    # No model and no API key, so it also runs on pull requests from forks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Test rule patterns against fixtures
+        run: bash scripts/test-rules.sh
+
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - name: Checkout (full history for merge-base diff)
-        uses: actions/checkout@v4
+      - name: Checkout (full history for the merge-base diff)
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # The gate reads untrusted text with a model. Keep the job token out of
+          # .git/config, which any file read inside the workspace would reach.
+          persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
+          package-manager-cache: false
 
       - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+        # Pinned: a gate must not change behaviour because a dependency moved.
+        # Bump deliberately: npm view @anthropic-ai/claude-code dist-tags
+        run: npm install -g @anthropic-ai/claude-code@2.1.309
 
       - name: Run ClaudeGuard gate
         id: gate
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          chmod +x scripts/check.sh
+          # Run through bash, not executed: no reliance on the executable bit (a
+          # Windows checkout does not record it) and no chmod mutating the tree
+          # the gate is about to judge — that surfaced as a phantom mode change.
           set +e
-          scripts/check.sh "origin/${{ github.base_ref }}"
+          bash scripts/check.sh "origin/$BASE_REF"
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           set -e
 
@@ -60,7 +87,10 @@ jobs:
 
       - name: Comment report on PR
         if: always()
-        uses: actions/github-script@v7
+        # Best effort: a fork PR gets a read-only token and cannot comment. The
+        # verdict is enforced by the next step, not by this one.
+        continue-on-error: true
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -75,6 +105,14 @@ jobs:
 
       - name: Enforce verdict
         if: steps.gate.outputs.exit_code != '0'
+        env:
+          EXIT_CODE: ${{ steps.gate.outputs.exit_code }}
         run: |
-          echo "ClaudeGuard failed the gate (exit ${{ steps.gate.outputs.exit_code }})."
+          if [ "$EXIT_CODE" = "1" ]; then
+            echo "ClaudeGuard: policy FAIL - see the report."
+          else
+            echo "ClaudeGuard: no verdict (exit ${EXIT_CODE:-none}) - a setup or infrastructure"
+            echo "error, not a policy finding. See the gate step log. On a pull request from"
+            echo "a fork, repository secrets are withheld, so the gate cannot run there."
+          fi
           exit 1
